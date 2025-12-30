@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>元素选择器通讯测试</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+    }
+    
+    /* 左侧预览区 */
+    .preview-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #334155;
+    }
+    .preview-header {
+      padding: 12px 16px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .preview-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .preview-url {
+      flex: 1;
+      padding: 6px 12px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-family: monospace;
+    }
+    .preview-iframe {
+      flex: 1;
+      border: none;
+      background: white;
+    }
+    
+    /* 右侧消息面板 */
+    .message-panel {
+      width: 420px;
+      display: flex;
+      flex-direction: column;
+      background: #1e293b;
+    }
+    .message-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .message-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    /* 控制栏 */
+    .control-bar {
+      padding: 12px 16px;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .toggle-btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .toggle-btn.off {
+      background: #3b82f6;
+      color: white;
+    }
+    .toggle-btn.off:hover { background: #2563eb; }
+    .toggle-btn.on {
+      background: #ef4444;
+      color: white;
+    }
+    .toggle-btn.on:hover { background: #dc2626; }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+    .status-dot.ready { background: #10b981; }
+    .status-dot.active { background: #ef4444; animation: pulse 1s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .clear-btn {
+      padding: 4px 12px;
+      background: #374151;
+      border: none;
+      border-radius: 4px;
+      color: #9ca3af;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .clear-btn:hover { background: #4b5563; color: white; }
+    
+    /* 消息统计 */
+    .message-stats {
+      padding: 8px 16px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      gap: 16px;
+    }
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .stat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .stat-dot.select { background: #ef4444; }
+    .stat-dot.navigate { background: #3b82f6; }
+    .stat-dot.status { background: #10b981; }
+    
+    /* 消息列表 */
+    .message-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .message-item {
+      margin-bottom: 8px;
+      background: #0f172a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .message-item.select { border-left: 3px solid #ef4444; }
+    .message-item.navigate { border-left: 3px solid #3b82f6; }
+    .message-item.status { border-left: 3px solid #10b981; }
+    .message-item.ready { border-left: 3px solid #8b5cf6; }
+    
+    .message-item-header {
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      cursor: pointer;
+    }
+    .message-item-header:hover { background: #334155; }
+    .message-action {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .message-action.select { color: #ef4444; }
+    .message-action.navigate { color: #3b82f6; }
+    .message-action.status { color: #10b981; }
+    .message-action.ready { color: #8b5cf6; }
+    .message-time {
+      font-size: 11px;
+      color: #64748b;
+      font-family: monospace;
+    }
+    
+    .message-item-body {
+      padding: 12px;
+      font-size: 12px;
+      display: none;
+    }
+    .message-item.expanded .message-item-body { display: block; }
+    
+    .info-row {
+      display: flex;
+      margin-bottom: 8px;
+    }
+    .info-label {
+      width: 70px;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+    .info-value {
+      flex: 1;
+      font-family: monospace;
+      word-break: break-all;
+    }
+    .info-value.selector { color: #fbbf24; }
+    .info-value.source { color: #34d399; }
+    .info-value.file { color: #60a5fa; }
+    
+    /* 源码位置高亮 */
+    .source-link {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #065f46;
+      border-radius: 4px;
+      color: #a7f3d0;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
+    /* 导航按钮 */
+    .nav-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #334155;
+    }
+    .nav-title {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    .nav-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .nav-btn {
+      padding: 4px 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .nav-btn.parent { background: #1e3a5f; color: #60a5fa; }
+    .nav-btn.parent:hover { background: #2563eb; color: white; }
+    .nav-btn.child { background: #14532d; color: #34d399; }
+    .nav-btn.child:hover { background: #16a34a; color: white; }
+    .nav-btn.sibling { background: #422006; color: #fbbf24; }
+    .nav-btn.sibling:hover { background: #d97706; color: white; }
+    
+    /* 空状态 */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #64748b;
+      text-align: center;
+      padding: 40px;
+    }
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .empty-state-text {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <!-- 左侧预览区 -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <h2>预览</h2>
+      <input type="text" class="preview-url" id="previewUrl" value="http://10.64.86.36:5173" />
+      <button class="clear-btn" onclick="reloadPreview()">刷新</button>
+    </div>
+    <iframe id="previewFrame" class="preview-iframe" src="http://10.64.86.36:5173"></iframe>
+  </div>
+  
+  <!-- 右侧消息面板 -->
+  <div class="message-panel">
+    <div class="message-header">
+      <h2>📨 PostMessage 通讯</h2>
+      <div class="status-indicator">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">等待连接...</span>
+      </div>
+    </div>
+    
+    <!-- 控制栏 -->
+    <div class="control-bar">
+      <button class="toggle-btn off" id="toggleBtn" onclick="toggleInspector()">
+        <span>🔍</span>
+        <span id="toggleText">开启选择器</span>
+      </button>
+      <button class="clear-btn" onclick="clearMessages()">清空消息</button>
+    </div>
+    
+    <div class="message-stats">
+      <div class="stat-item">
+        <span class="stat-dot select"></span>
+        <span>选中: <strong id="selectCount">0</strong></span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot navigate"></span>
+        <span>导航: <strong id="navigateCount">0</strong></span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot status"></span>
+        <span>总计: <strong id="totalCount">0</strong></span>
+      </div>
+    </div>
+    <div class="message-list" id="messageList">
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">
+          等待消息...<br>
+          点击上方「开启选择器」按钮<br>
+          然后在左侧预览中选择元素
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const messageList = document.getElementById('messageList');
+    const previewFrame = document.getElementById('previewFrame');
+    const previewUrl = document.getElementById('previewUrl');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const toggleText = document.getElementById('toggleText');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    let messages = [];
+    let stats = { select: 0, navigate: 0, total: 0 };
+    let isInspectorEnabled = false;
+    let isReady = false;
+    
+    // 发送命令到 iframe
+    function sendCommand(command, data = {}) {
+      previewFrame.contentWindow.postMessage({
+        type: 'DEV_INSPECTOR_COMMAND',
+        command: command,
+        ...data
+      }, '*');
+    }
+    
+    // 导航到指定元素（使用 sourceId）
+    function navigateTo(sourceId) {
+      sendCommand('selectByPath', { sourceId: sourceId });
+    }
+    
+    // 渲染导航区域
+    function renderNavSection(family) {
+      if (!family) return '';
+      const { parents = [], children = [], siblings = [] } = family;
+      if (!parents.length && !children.length && !siblings.length) return '';
+      
+      let html = '<div class="nav-section">';
+      
+      if (parents.length) {
+        html += `<div class="nav-title">⬆️ 父元素 (${parents.length})</div><div class="nav-btns">`;
+        parents.forEach((p, i) => {
+          html += `<button class="nav-btn parent" onclick="event.stopPropagation();navigateTo(${JSON.stringify(p.sourceId)})">${'↑'.repeat(i+1)} ${p.label || 'element'}</button>`;
+        });
+        html += '</div>';
+      }
+      
+      if (children.length) {
+        html += `<div class="nav-title" style="margin-top:10px">⬇️ 子元素 (${children.length})</div><div class="nav-btns">`;
+        children.forEach(c => {
+          html += `<button class="nav-btn child" onclick="event.stopPropagation();navigateTo(${JSON.stringify(c.sourceId)})">↓ ${c.label || 'element'}</button>`;
+        });
+        html += '</div>';
+      }
+      
+      if (siblings.length) {
+        html += `<div class="nav-title" style="margin-top:10px">↔️ 兄弟元素 (${siblings.length})</div><div class="nav-btns">`;
+        siblings.forEach(s => {
+          html += `<button class="nav-btn sibling" onclick="event.stopPropagation();navigateTo(${JSON.stringify(s.sourceId)})">↔ ${s.label || 'element'}</button>`;
+        });
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+    
+    // 切换选择器
+    function toggleInspector() {
+      if (!isReady) {
+        alert('预览页面尚未加载完成，请稍候...');
+        return;
+      }
+      sendCommand('toggle');
+    }
+    
+    // 更新按钮状态
+    function updateToggleButton(enabled) {
+      isInspectorEnabled = enabled;
+      if (enabled) {
+        toggleBtn.className = 'toggle-btn on';
+        toggleText.textContent = '关闭选择器';
+        statusDot.className = 'status-dot active';
+        statusText.textContent = '选择模式';
+      } else {
+        toggleBtn.className = 'toggle-btn off';
+        toggleText.textContent = '开启选择器';
+        statusDot.className = 'status-dot ready';
+        statusText.textContent = '已就绪';
+      }
+    }
+    
+    // 监听 postMessage
+    window.addEventListener('message', (event) => {
+      if (!event.data || event.data.type !== 'DEV_INSPECTOR_EVENT') return;
+      
+      const msg = event.data;
+      
+      // 处理 ready 事件
+      if (msg.action === 'ready') {
+        isReady = true;
+        statusDot.className = 'status-dot ready';
+        statusText.textContent = '已就绪';
+      }
+      
+      // 处理 status 事件
+      if (msg.action === 'status') {
+        updateToggleButton(msg.enabled);
+      }
+      
+      messages.unshift(msg);
+      
+      // 更新统计
+      stats.total++;
+      if (msg.action === 'select') stats.select++;
+      if (msg.action === 'navigate') stats.navigate++;
+      
+      updateStats();
+      renderMessages();
+    });
+    
+    function updateStats() {
+      document.getElementById('selectCount').textContent = stats.select;
+      document.getElementById('navigateCount').textContent = stats.navigate;
+      document.getElementById('totalCount').textContent = stats.total;
+    }
+    
+    function renderMessages() {
+      if (messages.length === 0) {
+        messageList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-text">
+              等待消息...<br>
+              点击上方「开启选择器」按钮<br>
+              然后在左侧预览中选择元素
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      messageList.innerHTML = messages.map((msg, index) => {
+        const el = msg.element || {};
+        const source = el.source || {};
+        const time = new Date(msg.timestamp).toLocaleTimeString();
+        
+        // 状态消息特殊处理
+        if (msg.action === 'status') {
+          return `
+            <div class="message-item status" onclick="toggleExpand(this)">
+              <div class="message-item-header">
+                <span class="message-action status">STATUS</span>
+                <span style="flex:1;margin:0 12px;font-size:12px;color:#10b981;">
+                  选择器${msg.enabled ? '已开启' : '已关闭'}
+                </span>
+                <span class="message-time">${time}</span>
+              </div>
+            </div>
+          `;
+        }
+        
+        // ready 消息
+        if (msg.action === 'ready') {
+          return `
+            <div class="message-item ready" onclick="toggleExpand(this)">
+              <div class="message-item-header">
+                <span class="message-action ready">READY</span>
+                <span style="flex:1;margin:0 12px;font-size:12px;color:#8b5cf6;">
+                  Inspector 已加载
+                </span>
+                <span class="message-time">${time}</span>
+              </div>
+            </div>
+          `;
+        }
+        
+        return `
+          <div class="message-item ${msg.action}" onclick="toggleExpand(this)">
+            <div class="message-item-header">
+              <span class="message-action ${msg.action}">${msg.action}</span>
+              <span class="message-selector" style="flex:1;margin:0 12px;font-family:monospace;font-size:11px;color:#fbbf24;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${el.sourceId || el.tagName || '-'}
+              </span>
+              <span class="message-time">${time}</span>
+            </div>
+            <div class="message-item-body">
+              <div class="info-row">
+                <span class="info-label">源码ID</span>
+                <span class="info-value selector">${el.sourceId || '-'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">标签</span>
+                <span class="info-value">${el.tagName || '-'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">ID</span>
+                <span class="info-value">${el.id || '-'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">类名</span>
+                <span class="info-value">${el.classList?.join(' ') || '-'}</span>
+              </div>
+              ${source.file ? `
+              <div class="info-row">
+                <span class="info-label">文件</span>
+                <span class="info-value file">${source.file}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">位置</span>
+                <span class="info-value">行 ${source.line}, 列 ${source.column}</span>
+              </div>
+              <div class="source-link">📄 ${source.raw}</div>
+              ` : ''}
+              ${el.textContent ? `
+              <div class="info-row" style="margin-top:8px">
+                <span class="info-label">文本</span>
+                <span class="info-value" style="color:#94a3b8">${el.textContent.slice(0, 80)}${el.textContent.length > 80 ? '...' : ''}</span>
+              </div>
+              ` : ''}
+              ${renderNavSection(msg.family)}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // 默认展开第一条元素消息
+      const firstItem = messageList.querySelector('.message-item.select, .message-item.navigate');
+      if (firstItem) firstItem.classList.add('expanded');
+    }
+    
+    function toggleExpand(el) {
+      el.classList.toggle('expanded');
+    }
+    
+    function clearMessages() {
+      messages = [];
+      stats = { select: 0, navigate: 0, total: 0 };
+      updateStats();
+      renderMessages();
+    }
+    
+    function reloadPreview() {
+      isReady = false;
+      isInspectorEnabled = false;
+      statusDot.className = 'status-dot';
+      statusText.textContent = '等待连接...';
+      toggleBtn.className = 'toggle-btn off';
+      toggleText.textContent = '开启选择器';
+      previewFrame.src = previewUrl.value;
+    }
+    
+    // URL 输入框回车刷新
+    previewUrl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') reloadPreview();
+    });
+  </script>
+</body>
+</html>
