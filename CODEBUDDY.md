@@ -173,7 +173,7 @@ export default app;
    - 启动服务（后台运行）
    - 捕获并输出 cloudflared 隧道 URL
 4. 等待命令输出 `<!-- TUNNEL_URL: https://xxx.trycloudflare.com -->` 格式的 URL
-5. 将 URL 返回给用户
+5. 使用 `<!-- TUNNEL_URL: https://xxx.trycloudflare.com -->` 格式返回 URL
 
 **⚠️ 关键说明**：
 - `npm run all` 会**自动退出**，服务在后台运行
