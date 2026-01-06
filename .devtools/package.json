@@ -5,11 +5,13 @@
   "scripts": {
     "build": "npm run --prefix ../template build",
     "preview": "npm run --prefix ../template preview",
-    "cleanup": "node -e \"const{execSync}=require('child_process');[3456,5173].forEach(p=>{try{execSync('lsof -ti:'+p+'|xargs kill -9',{stdio:'ignore'})}catch{}});console.log('Ports cleaned')\"",
-    "tunnel": "concurrently -k -c auto \"npm run --prefix ../template dev -- --port 5173 --strictPort\" \"npx cloudflared tunnel --protocol http2 --url http://localhost:5173\"",
-    "all": "node start.mjs",
-    "all:foreground": "npm run cleanup && npm run --prefix ../template build && concurrently -k -n vite,proxy,tunnel -c auto \"npm run --prefix ../template dev -- --port 5173 --strictPort\" \"node download-server.mjs ../template\" \"npx cloudflared tunnel --protocol http2 --url http://localhost:3456\"",
-    "download": "concurrently -k -c auto \"node download-server.mjs ../template\" \"npx cloudflared tunnel --protocol http2 --url http://localhost:3456\""
+    "all": "npm run --prefix ../template build && pm2 delete all 2>/dev/null; pm2 start ecosystem.config.cjs && sleep 8 && pm2 logs cloudflare-tunnel --lines 50 --nostream 2>/dev/null | grep -oE 'https://[a-z0-9-]+\\.trycloudflare\\.com' | tail -1 | xargs -I {} echo '<!-- TUNNEL_URL: {} -->'",
+    "dev": "pm2 delete all 2>/dev/null; pm2 start ecosystem.config.cjs && sleep 8 && pm2 logs cloudflare-tunnel --lines 50 --nostream 2>/dev/null | grep -oE 'https://[a-z0-9-]+\\.trycloudflare\\.com' | tail -1 | xargs -I {} echo '<!-- TUNNEL_URL: {} -->'",
+    "stop": "pm2 stop all",
+    "restart": "pm2 restart all",
+    "status": "pm2 status",
+    "logs": "pm2 logs",
+    "url": "pm2 logs cloudflare-tunnel --lines 50 --nostream 2>/dev/null | grep -oE 'https://[a-z0-9-]+\\.trycloudflare\\.com' | tail -1 | xargs -I {} echo '<!-- TUNNEL_URL: {} -->'"
   },
   "devDependencies": {
     "cloudflared": "^0.7.1",

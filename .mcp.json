@@ -4,7 +4,8 @@
       "command": "npx",
       "args": ["@cloudbase/cloudbase-mcp@latest"],
       "env": {
-        "INTEGRATION_IDE": "CodeBuddyManual"
+        "INTEGRATION_IDE": "CodeBuddyManual",
+        "CLOUDBASE_ENV_ID":"lowcode-2gxfhnrv01a30333"
       }
     }
   }
