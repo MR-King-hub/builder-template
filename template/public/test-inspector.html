@@ -287,6 +287,72 @@
       font-size: 14px;
       line-height: 1.6;
     }
+
+    /* 样式编辑面板 */
+    .style-editor {
+      padding: 12px 16px;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      display: none;
+    }
+    .style-editor.active { display: block; }
+    .style-editor-title {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .style-editor-title strong {
+      color: #fbbf24;
+      font-family: monospace;
+    }
+    .style-input-group {
+      margin-bottom: 10px;
+    }
+    .style-input-label {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .style-input {
+      width: 100%;
+      padding: 8px 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: monospace;
+      resize: vertical;
+    }
+    .style-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+    .style-input.class-input { min-height: 60px; }
+    .style-input.inline-input { min-height: 40px; }
+    .style-btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .style-btn {
+      flex: 1;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .style-btn.apply { background: #3b82f6; color: white; }
+    .style-btn.apply:hover { background: #2563eb; }
+    .style-btn.reset { background: #374151; color: #9ca3af; }
+    .style-btn.reset:hover { background: #4b5563; color: white; }
+    .style-btn.copy { background: #14532d; color: #34d399; }
+    .style-btn.copy:hover { background: #16a34a; color: white; }
   </style>
 </head>
 <body>
@@ -318,7 +384,33 @@
       </button>
       <button class="clear-btn" onclick="clearMessages()">清空消息</button>
     </div>
-    
+
+    <!-- 样式编辑器 -->
+    <div class="style-editor" id="styleEditor">
+      <div class="style-editor-title">
+        🎨 编辑样式: <strong id="selectedElementLabel">-</strong>
+      </div>
+      <div class="style-input-group">
+        <div class="style-input-label">Tailwind Classes</div>
+        <textarea class="style-input class-input" id="classNameInput" placeholder="输入 Tailwind 类名..."></textarea>
+        <div class="style-btn-row">
+          <button class="style-btn apply" onclick="applyClassName()">应用</button>
+          <button class="style-btn copy" onclick="copyClassName()">📋 复制</button>
+        </div>
+      </div>
+      <div class="style-input-group">
+        <div class="style-input-label">Inline Style</div>
+        <textarea class="style-input inline-input" id="inlineStyleInput" placeholder="例如: color: red; font-size: 16px;"></textarea>
+        <div class="style-btn-row">
+          <button class="style-btn apply" onclick="applyInlineStyle()">应用</button>
+          <button class="style-btn copy" onclick="copyInlineStyle()">📋 复制</button>
+        </div>
+      </div>
+      <div class="style-btn-row">
+        <button class="style-btn reset" onclick="resetStyle()">↩️ 重置样式</button>
+      </div>
+    </div>
+
     <div class="message-stats">
       <div class="stat-item">
         <span class="stat-dot select"></span>
@@ -353,11 +445,21 @@
     const toggleText = document.getElementById('toggleText');
     const statusDot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
-    
+
+    // 样式编辑器元素
+    const styleEditor = document.getElementById('styleEditor');
+    const selectedElementLabel = document.getElementById('selectedElementLabel');
+    const classNameInput = document.getElementById('classNameInput');
+    const inlineStyleInput = document.getElementById('inlineStyleInput');
+
     let messages = [];
     let stats = { select: 0, navigate: 0, total: 0 };
     let isInspectorEnabled = false;
     let isReady = false;
+
+    // 当前选中元素的原始样式（用于重置）
+    let originalClassName = '';
+    let originalStyle = '';
     
     // 发送命令到 iframe
     function sendCommand(command, data = {}) {
@@ -431,34 +533,128 @@
         toggleText.textContent = '开启选择器';
         statusDot.className = 'status-dot ready';
         statusText.textContent = '已就绪';
+        // 关闭选择器时隐藏样式编辑器
+        hideStyleEditor();
       }
     }
-    
+
+    // 显示样式编辑器
+    function showStyleEditor(element, style) {
+      if (!element || !style) return;
+
+      // 保存原始样式
+      originalClassName = style.className || '';
+      originalStyle = style.inlineStyle || '';
+
+      // 更新 UI
+      let label = element.tagName?.toLowerCase() || 'element';
+      if (element.id) label += '#' + element.id;
+      selectedElementLabel.textContent = '<' + label + '>';
+
+      classNameInput.value = style.className || '';
+      inlineStyleInput.value = style.inlineStyle || '';
+
+      styleEditor.classList.add('active');
+    }
+
+    // 隐藏样式编辑器
+    function hideStyleEditor() {
+      styleEditor.classList.remove('active');
+      selectedElementLabel.textContent = '-';
+      classNameInput.value = '';
+      inlineStyleInput.value = '';
+    }
+
+    // 应用 className
+    function applyClassName() {
+      sendCommand('updateClassName', { className: classNameInput.value });
+    }
+
+    // 应用 inline style
+    function applyInlineStyle() {
+      sendCommand('updateStyle', { style: inlineStyleInput.value });
+    }
+
+    // 重置样式
+    function resetStyle() {
+      sendCommand('resetStyle', {
+        originalClassName: originalClassName,
+        originalStyle: originalStyle
+      });
+      classNameInput.value = originalClassName;
+      inlineStyleInput.value = originalStyle;
+    }
+
+    // 复制 className
+    function copyClassName() {
+      const text = 'className="' + classNameInput.value + '"';
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已复制: ' + text);
+      });
+    }
+
+    // 复制 inline style（React 格式）
+    function copyInlineStyle() {
+      const styles = inlineStyleInput.value.split(';')
+        .map(s => s.trim())
+        .filter(s => s)
+        .map(s => {
+          const [prop, val] = s.split(':').map(x => x.trim());
+          if (!prop || !val) return null;
+          // 转换为驼峰命名
+          const camelProp = prop.replace(/-([a-z])/g, (m, c) => c.toUpperCase());
+          return '  ' + camelProp + ': "' + val + '"';
+        })
+        .filter(Boolean)
+        .join(',\n');
+      const text = 'style={{\n' + styles + '\n}}';
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已复制 React style 对象');
+      });
+    }
+
     // 监听 postMessage
     window.addEventListener('message', (event) => {
       if (!event.data || event.data.type !== 'DEV_INSPECTOR_EVENT') return;
-      
+
       const msg = event.data;
-      
+
       // 处理 ready 事件
       if (msg.action === 'ready') {
         isReady = true;
         statusDot.className = 'status-dot ready';
         statusText.textContent = '已就绪';
       }
-      
+
       // 处理 status 事件
       if (msg.action === 'status') {
         updateToggleButton(msg.enabled);
       }
-      
+
+      // 处理选中/导航事件 - 显示样式编辑器
+      if (msg.action === 'select' || msg.action === 'navigate') {
+        showStyleEditor(msg.element, msg.style);
+      }
+
+      // 处理样式更新事件 - 更新输入框
+      if (msg.action === 'styleUpdated' && msg.style) {
+        classNameInput.value = msg.style.className || '';
+        inlineStyleInput.value = msg.style.inlineStyle || '';
+      }
+
+      // 处理样式重置事件
+      if (msg.action === 'styleReset' && msg.style) {
+        classNameInput.value = msg.style.className || '';
+        inlineStyleInput.value = msg.style.inlineStyle || '';
+      }
+
       messages.unshift(msg);
-      
+
       // 更新统计
       stats.total++;
       if (msg.action === 'select') stats.select++;
       if (msg.action === 'navigate') stats.navigate++;
-      
+
       updateStats();
       renderMessages();
     });
@@ -554,7 +750,6 @@
                 <span class="info-label">位置</span>
                 <span class="info-value">行 ${source.line}, 列 ${source.column}</span>
               </div>
-              <div class="source-link">📄 ${source.raw}</div>
               ` : ''}
               ${el.textContent ? `
               <div class="info-row" style="margin-top:8px">
@@ -591,6 +786,7 @@
       statusText.textContent = '等待连接...';
       toggleBtn.className = 'toggle-btn off';
       toggleText.textContent = '开启选择器';
+      hideStyleEditor();
       previewFrame.src = previewUrl.value;
     }
     

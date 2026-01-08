@@ -197,6 +197,7 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
       color: #66a6ff;
       font-weight: 600;
     }
+
   \`;
   document.head.appendChild(style);
 
@@ -239,7 +240,7 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
   selectedTagBottom.className = 'inspector-tag-bottom';
   selectedTagBottom.style.display = 'none';
   document.body.appendChild(selectedTagBottom);
-  
+
   // 当前 hover 和选中的元素
   let hoverEl = null;
   let selectedEl = null;
@@ -370,7 +371,7 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
   }
 
   // ========== 通讯函数 ==========
-  
+
   function postEvent(action, data = {}) {
     const event = {
       type: 'DEV_INSPECTOR_EVENT',
@@ -567,53 +568,98 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
     selectedEl = el;
   }
   
+  // 获取元素的样式信息
+  function getStyleInfo(el) {
+    const className = typeof el.className === 'string' ? el.className : '';
+    const inlineStyle = el.getAttribute('style') || '';
+    const computedStyle = window.getComputedStyle(el);
+
+    // 解析 inline styles
+    const styles = [];
+    if (inlineStyle) {
+      inlineStyle.split(';').forEach(s => {
+        const [prop, val] = s.split(':').map(x => x.trim());
+        if (prop && val) {
+          styles.push({ prop, value: val });
+        }
+      });
+    }
+
+    return {
+      className: className,
+      inlineStyle: inlineStyle,
+      styles: styles,
+      // 常用的计算样式
+      computed: {
+        width: computedStyle.width,
+        height: computedStyle.height,
+        padding: computedStyle.padding,
+        margin: computedStyle.margin,
+        backgroundColor: computedStyle.backgroundColor,
+        color: computedStyle.color,
+        fontSize: computedStyle.fontSize,
+        display: computedStyle.display,
+        position: computedStyle.position
+      }
+    };
+  }
+
   // 选中元素并发送事件
   function selectElement(el, action = 'select') {
     // 更新选中框
     updateSelectedHighlight(el);
     // 清除 hover（因为点击的元素就是当前 hover 的）
     clearHover();
-    
+
     const elementInfo = buildElementInfo(el);
     const familyInfo = buildFamilyInfo(el);
-    
+    const styleInfo = getStyleInfo(el);
+
     postEvent(action, {
       element: elementInfo,
-      family: familyInfo
+      family: familyInfo,
+      style: styleInfo
     });
   }
 
   // ========== 事件处理 ==========
 
+  // 检查是否是 inspector 自身的元素
+  function isInspectorElement(el) {
+    return el === hoverBox || el === selectedBox || el === hoverTagTop || el === hoverTagBottom ||
+           el === selectedTagTop || el === selectedTagBottom;
+  }
+
   function onMouseMove(e) {
     if (!enabled) return;
-    
+
     const el = e.target;
-    if (el === hoverBox || el === selectedBox || el === hoverTagTop || el === hoverTagBottom || 
-        el === selectedTagTop || el === selectedTagBottom || el === document.body || el === document.documentElement) return;
-    
+    if (isInspectorElement(el) || el === document.body || el === document.documentElement) return;
+
     // 更新 hover 高亮（即使有选中元素也显示）
     updateHoverHighlight(el);
   }
 
   function onClick(e) {
     if (!enabled) return;
-    
+
+    const el = e.target;
+    // 如果点击的是 inspector 元素，不处理
+    if (isInspectorElement(el)) return;
+
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    
-    const el = e.target;
-    if (el === hoverBox || el === selectedBox || el === hoverTagTop || el === hoverTagBottom || 
-        el === selectedTagTop || el === selectedTagBottom) return;
-    
+
     selectElement(el, 'select');
     return false;
   }
-  
+
   // 阻止所有可能触发按钮行为的事件
   function blockEvent(e) {
     if (!enabled) return;
+    // 如果是 inspector 元素，不阻止
+    if (isInspectorElement(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -632,25 +678,25 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
   }
 
   // ========== postMessage 命令处理 ==========
-  
+
   window.addEventListener('message', function(e) {
     if (!e.data || e.data.type !== 'DEV_INSPECTOR_COMMAND') return;
-    
+
     const { command, path } = e.data;
-    
+
     switch (command) {
       case 'toggle':
         setEnabled(!enabled);
         break;
-        
+
       case 'enable':
         setEnabled(true);
         break;
-        
+
       case 'disable':
         setEnabled(false);
         break;
-        
+
       case 'selectByPath':
         // 兼容旧的 path 参数，但优先使用 sourceId
         const sourceId = e.data.sourceId || path;
@@ -662,11 +708,59 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
           }
         }
         break;
+
+      case 'updateClassName':
+        // 更新选中元素的 className
+        if (selectedEl && typeof e.data.className === 'string') {
+          selectedEl.className = e.data.className;
+          // 更新高亮框位置（尺寸可能变化）
+          updateSelectedHighlight(selectedEl);
+          postEvent('styleUpdated', {
+            type: 'className',
+            value: e.data.className,
+            style: getStyleInfo(selectedEl)
+          });
+        }
+        break;
+
+      case 'updateStyle':
+        // 更新选中元素的 inline style
+        if (selectedEl && typeof e.data.style === 'string') {
+          if (e.data.style) {
+            selectedEl.setAttribute('style', e.data.style);
+          } else {
+            selectedEl.removeAttribute('style');
+          }
+          // 更新高亮框位置（尺寸可能变化）
+          updateSelectedHighlight(selectedEl);
+          postEvent('styleUpdated', {
+            type: 'style',
+            value: e.data.style,
+            style: getStyleInfo(selectedEl)
+          });
+        }
+        break;
+
+      case 'resetStyle':
+        // 重置选中元素的样式到原始状态（需要配合 select 事件保存的原始样式）
+        if (selectedEl && e.data.originalClassName !== undefined) {
+          selectedEl.className = e.data.originalClassName;
+        }
+        if (selectedEl && e.data.originalStyle !== undefined) {
+          if (e.data.originalStyle) {
+            selectedEl.setAttribute('style', e.data.originalStyle);
+          } else {
+            selectedEl.removeAttribute('style');
+          }
+        }
+        updateSelectedHighlight(selectedEl);
+        postEvent('styleReset', { style: getStyleInfo(selectedEl) });
+        break;
     }
   });
 
   // ========== 初始化 ==========
-  
+
   document.addEventListener('mousemove', onMouseMove, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('mousedown', blockEvent, true);
@@ -676,7 +770,14 @@ export function devInspectorPlugin(options?: InspectorPluginOptions): PluginOpti
   document.addEventListener('touchstart', blockEvent, true);
   document.addEventListener('touchend', blockEvent, true);
   document.addEventListener('keydown', onKeyDown);
-  
+
+  // 鼠标离开文档时清除 hover 高亮
+  document.addEventListener('mouseleave', function() {
+    if (enabled) {
+      clearHover();
+    }
+  });
+
   // 滚动时更新高亮框位置
   function onScroll() {
     if (!enabled) return;
